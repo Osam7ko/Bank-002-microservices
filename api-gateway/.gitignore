@@ -34,3 +34,5 @@ build/
 
 ### Database Volume Data ###
 volume-data/
+
+.metadata/
