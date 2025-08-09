@@ -7,10 +7,8 @@ import com.osama.bank002.profile.util.JwtUtils;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -63,11 +61,11 @@ public class ProfileServiceImpl implements ProfileService {
     public void softDeleteMyProfile(Jwt jwt) {
         var uid = jwtUtils.userId(jwt);
         // TODO: call account-service: GET /api/accounts/owner/{userId}/count
-        int openCount = accountClient.countOpenAccounts(uid);
-        if (openCount > 0) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "You still have open accounts. Close them before deleting your profile.");
-        }
+//        int openCount = accountClient.countOpenAccounts(uid);
+//        if (openCount > 0) {
+//            throw new ResponseStatusException(HttpStatus.CONFLICT,
+//                    "You still have open accounts. Close them before deleting your profile.");
+//        }
         Profile p = repo.findByUserId(uid)
                 .orElseThrow(() -> new EntityNotFoundException("Profile not found"));
         p.setStatus("DELETED");
