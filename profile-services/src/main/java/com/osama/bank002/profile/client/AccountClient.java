@@ -9,6 +9,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 public interface AccountClient {
 
     @PostMapping("/api/accounts")
-    BankResponse opne(OpenAccountRequest req);
+    BankResponse open(OpenAccountRequest req);
 
 }

@@ -1,5 +1,7 @@
 package com.osama.bank002.profile.service;
 
+import com.osama.bank002.profile.client.AccountClient;
+import com.osama.bank002.profile.client.dto.OpenAccountRequest;
 import com.osama.bank002.profile.dto.ProfileUpdateRequest;
 import com.osama.bank002.profile.entity.Profile;
 import com.osama.bank002.profile.repository.ProfileRepository;
@@ -17,20 +19,41 @@ public class ProfileServiceImpl implements ProfileService {
     private final ProfileRepository repo;
 
     private final JwtUtils jwtUtils;
+    private final AccountClient accountClient;
 
     @Transactional
     @Override
     public Profile bootstrapIfMissing(Jwt jwt) {
         String uid = jwtUtils.userId(jwt);
-        return repo.findByUserId(uid).orElseGet(() -> {
+
+        Profile profile = repo.findByUserId(uid).orElseGet(() -> {
             Profile p = Profile.builder()
                     .userId(uid)
                     .firstName("New")
-                    .lastName("User")
+                    .lastName("Profile for " + uid)
                     .status("ACTIVE")
                     .build();
             return repo.save(p);
         });
+
+        /**
+         *If profile is new (no accounts), open default account now:
+         *You can track this by querying account-service (count by owner) OR
+         *simply attempt to open the first one once:
+         */
+
+        if (isFirstAccountNeeded(profile)) {
+            String displayName = (profile.getFirstName() + " " + profile.getLastName()).trim();
+            accountClient.open(new OpenAccountRequest(profile.getId().toString(), displayName));
+        }
+        return profile;
+    }
+
+    private boolean isFirstAccountNeeded(Profile p) {
+        // simplest: add a boolean column 'has_default_account' on profile, or
+        // call account-service GET /api/accounts/owner/{profileId}/count.
+        // For now return true if you want to always open at first bootstrap:
+        return true;
     }
 
     @Override
