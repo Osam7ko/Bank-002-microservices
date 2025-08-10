@@ -11,6 +11,7 @@ import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -26,6 +27,7 @@ public class EmailServiceImpl implements EmailService{
     @Value("${spring.mail.username}")
     private String senderEmail;
 
+    @Async
     @Override
     public boolean sendEmailAlert(EmailDetails emailDetails) {
         if (!org.springframework.util.StringUtils.hasText(emailDetails.getRecipient())) {
@@ -48,6 +50,7 @@ public class EmailServiceImpl implements EmailService{
         }
     }
 
+    @Async
     @Override
     public void sendEmailWithAttachment(EmailDetails emailDetails) {
         MimeMessage mimeMessage = javaMailSender.createMimeMessage();

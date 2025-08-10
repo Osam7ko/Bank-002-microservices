@@ -198,6 +198,7 @@ public class BankAccountServiceImpl implements BankAccountService{
                 .build();
         emailService.sendEmailAlert(creationAlert);
 
+
         return BankResponse.builder()
                 .responseCode(AccountUtils.ACCOUNT_DEBITED_SUCCESS_CODE)
                 .responseMessage(AccountUtils.ACCOUNT_DEBITED_SUCCESS_MESSAGE)
