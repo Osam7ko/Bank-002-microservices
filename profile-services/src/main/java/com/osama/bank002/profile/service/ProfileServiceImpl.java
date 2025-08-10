@@ -1,6 +1,7 @@
 package com.osama.bank002.profile.service;
 
 import com.osama.bank002.profile.client.AccountClient;
+import com.osama.bank002.profile.client.dto.OpenAccountRequest;
 import com.osama.bank002.profile.dto.ProfileUpdateRequest;
 import com.osama.bank002.profile.entity.Profile;
 import com.osama.bank002.profile.repository.ProfileRepository;
@@ -27,23 +28,16 @@ public class ProfileServiceImpl implements ProfileService {
     public Profile bootstrapIfMissing(Jwt jwt) {
         String uid = jwtUtils.userId(jwt);
 
-        Profile profile = repo.findByUserId(uid).orElseGet(() -> {
-            Profile p = Profile.builder()
-                    .userId(uid)
-                    .firstName("New")
-                    .lastName("Profile for " + uid)
-                    .status("ACTIVE")
-                    .build();
-            return repo.save(p);
-        });
+        Profile p = repo.findByUserId(uid).orElseGet(() -> repo.save(Profile.builder()
+                .userId(uid).firstName("New").lastName("User").status("ACTIVE").build()));
 
-        /**
-         *If profile is new (no accounts), open default account now:
-         *You can track this by querying account-service (count by owner) OR
-         *simply attempt to open the first one once:
-         */
-
-        return profile;
+        // open default account ONCE
+        int count = accountClient.countOpenAccounts(p.getId().toString());
+        if (count == 0) {
+            String displayName = (p.getFirstName() + " " + p.getLastName()).trim();
+            accountClient.open(new OpenAccountRequest(p.getId().toString(), displayName));
+        }
+        return p;
     }
 
     private boolean isFirstAccountNeeded(Profile p) {

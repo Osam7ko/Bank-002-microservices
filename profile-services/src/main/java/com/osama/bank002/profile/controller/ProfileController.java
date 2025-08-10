@@ -1,10 +1,8 @@
 package com.osama.bank002.profile.controller;
 
 import com.osama.bank002.profile.client.AccountClient;
-import com.osama.bank002.profile.client.dto.OpenAccountRequest;
 import com.osama.bank002.profile.dto.ProfileResponse;
 import com.osama.bank002.profile.dto.ProfileUpdateRequest;
-import com.osama.bank002.profile.entity.Profile;
 import com.osama.bank002.profile.mapper.ProfileMapper;
 import com.osama.bank002.profile.service.ProfileService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -42,11 +40,14 @@ public class ProfileController {
             responseCode = "200",
             description = "Http Status 200 OK"
     )
+//    public ProfileResponse bootstrap(@AuthenticationPrincipal Jwt jwt) {
+//        Profile p = service.bootstrapIfMissing(jwt); // transaction commits here
+//        String displayName = (p.getFirstName() + " " + p.getLastName()).trim();
+//        accountClient.open(new OpenAccountRequest(p.getId().toString(), displayName));
+//        return ProfileMapper.toDto(p);
+//    }
     public ProfileResponse bootstrap(@AuthenticationPrincipal Jwt jwt) {
-        Profile p = service.bootstrapIfMissing(jwt); // transaction commits here
-        String displayName = (p.getFirstName() + " " + p.getLastName()).trim();
-        accountClient.open(new OpenAccountRequest(p.getId().toString(), displayName));
-        return ProfileMapper.toDto(p);
+        return ProfileMapper.toDto(service.bootstrapIfMissing(jwt));
     }
 
     @GetMapping("/me")
