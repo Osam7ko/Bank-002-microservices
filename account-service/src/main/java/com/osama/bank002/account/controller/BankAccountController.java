@@ -1,6 +1,7 @@
 package com.osama.bank002.account.controller;
 
 
+import com.osama.bank002.account.dto.OpenAccountRequest;
 import com.osama.bank002.account.dto.response.BankResponse;
 import com.osama.bank002.account.dto.response.CreditDebitResponse;
 import com.osama.bank002.account.dto.response.EnquiryRequest;
@@ -27,9 +28,8 @@ public class BankAccountController {
             summary = "Create/open account",
             description = "Create an account for the user (profileId required)"
     )
-    public BankResponse open(@RequestParam String profileId,
-                             @RequestParam(required = false) String displayName) {
-        return service.openAccount(profileId, displayName);
+    public BankResponse open(@RequestBody OpenAccountRequest req) {
+        return service.openAccount(req.profileId(), req.displayName());
     }
 
     // Balance enquiry (legacy shape)
@@ -53,7 +53,7 @@ public class BankAccountController {
     }
 
     // Credit
-    @PostMapping("//{accountNumber}/credit")
+    @PostMapping("/{accountNumber}/credit")
     @Operation(
             summary = "Credit", description = "Credits amount to the account"
     )

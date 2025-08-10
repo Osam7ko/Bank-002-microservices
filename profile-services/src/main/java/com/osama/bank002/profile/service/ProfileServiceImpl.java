@@ -1,7 +1,6 @@
 package com.osama.bank002.profile.service;
 
 import com.osama.bank002.profile.client.AccountClient;
-import com.osama.bank002.profile.client.dto.OpenAccountRequest;
 import com.osama.bank002.profile.dto.ProfileUpdateRequest;
 import com.osama.bank002.profile.entity.Profile;
 import com.osama.bank002.profile.repository.ProfileRepository;
@@ -44,10 +43,6 @@ public class ProfileServiceImpl implements ProfileService {
          *simply attempt to open the first one once:
          */
 
-        if (isFirstAccountNeeded(profile)) {
-            String displayName = (profile.getFirstName() + " " + profile.getLastName()).trim();
-            accountClient.open(new OpenAccountRequest(profile.getId().toString(), displayName));
-        }
         return profile;
     }
 
@@ -96,6 +91,12 @@ public class ProfileServiceImpl implements ProfileService {
         p.setStatus("DELETED");
         // Optional: scrub PII if you must comply with erasure
         // p.setFirstName("DELETED"); p.setPhoneNumber(null); ...
+    }
+
+
+    public Profile getByProfileId(Long profileId) {
+        return repo.findById(profileId)
+                .orElseThrow(() -> new EntityNotFoundException("Profile not found: " + profileId));
     }
 
 }

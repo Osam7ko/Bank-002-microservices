@@ -13,6 +13,7 @@ import com.osama.bank002.account.repository.BankAccountRepository;
 import com.osama.bank002.account.utils.AccountUtils;
 import com.osama.bank002.account.utils.Money;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BankAccountServiceImpl implements BankAccountService{
 
     private final BankAccountRepository repo;
@@ -54,16 +56,25 @@ public class BankAccountServiceImpl implements BankAccountService{
         /**
          * Email Configration
          */
-        EmailDetails creationAlert = EmailDetails.builder()
-                .recipient(profile.email())
-                .subject("Account creation")
-                .messageBody("""
-          Congrats! Your account has been created.
-          Account Name: %s
-          Account Number: %s
-          """.formatted(finalDisplay, accountNumber))
-                .build();
-        emailService.sendEmailAlert(creationAlert);
+        try {
+            if (org.springframework.util.StringUtils.hasText(profile.email())) {
+                EmailDetails creationAlert = EmailDetails.builder()
+                        .recipient(profile.email())
+                        .subject("Account creation")
+                        .messageBody("""
+                Congrats! Your account has been created.
+                Account Name: %s
+                Account Number: %s
+                """.formatted(finalDisplay, accountNumber))
+                        .build();
+                emailService.sendEmailAlert(creationAlert);
+            } else {
+                log.warn("Profile {} has no email; skipping creation email", profileId);
+            }
+        } catch (Exception e) {
+            // swallow so the transaction isn’t rolled back just because email failed
+            log.error("Non-fatal: email failed for profile {}", profileId, e);
+        }
 
         return BankResponse.builder()
                 .responseCode(AccountUtils.ACCOUNT_CREATION_SUCCESS)

@@ -28,6 +28,10 @@ public class EmailServiceImpl implements EmailService{
 
     @Override
     public boolean sendEmailAlert(EmailDetails emailDetails) {
+        if (!org.springframework.util.StringUtils.hasText(emailDetails.getRecipient())) {
+            log.warn("No recipient, skipping email send");
+            return false;
+        }
         try{
             SimpleMailMessage mailMessage = new SimpleMailMessage();
             mailMessage.setFrom(senderEmail);

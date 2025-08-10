@@ -15,4 +15,6 @@ public interface ProfileService {
     Profile getByUserId(String userId);
 
     void softDeleteMyProfile(Jwt jwt);
+
+    Profile getByProfileId(Long profileId);
 }

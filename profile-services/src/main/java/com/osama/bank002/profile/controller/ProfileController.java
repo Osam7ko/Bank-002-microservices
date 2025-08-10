@@ -1,5 +1,7 @@
 package com.osama.bank002.profile.controller;
 
+import com.osama.bank002.profile.client.AccountClient;
+import com.osama.bank002.profile.client.dto.OpenAccountRequest;
 import com.osama.bank002.profile.dto.ProfileResponse;
 import com.osama.bank002.profile.dto.ProfileUpdateRequest;
 import com.osama.bank002.profile.entity.Profile;
@@ -9,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -18,9 +21,17 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/profiles")
 @Tag(name = "Profile Management API's")
+@RequiredArgsConstructor
 public class ProfileController {
 
-    private ProfileService service;
+    private final ProfileService service;
+    private final AccountClient accountClient;
+
+    // ProfileController
+    @GetMapping("/id/{profileId}")
+    public ProfileResponse getByProfileId(@PathVariable Long profileId) {
+        return ProfileMapper.toDto(service.getByProfileId(profileId));
+    }
 
     @PostMapping("/bootstrap")
     @Operation(
@@ -32,7 +43,9 @@ public class ProfileController {
             description = "Http Status 200 OK"
     )
     public ProfileResponse bootstrap(@AuthenticationPrincipal Jwt jwt) {
-        Profile p = service.bootstrapIfMissing(jwt);
+        Profile p = service.bootstrapIfMissing(jwt); // transaction commits here
+        String displayName = (p.getFirstName() + " " + p.getLastName()).trim();
+        accountClient.open(new OpenAccountRequest(p.getId().toString(), displayName));
         return ProfileMapper.toDto(p);
     }
 
