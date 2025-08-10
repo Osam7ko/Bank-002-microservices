@@ -2,6 +2,8 @@ package com.osama.bank002.transfer.domain.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -29,6 +31,9 @@ public class Transfer {
     private String status; // PENDING, SUCCESS, FAILED
     private String idempotencyKey;
 
+    @CreationTimestamp
     private LocalDateTime createdAt;
+
+    @UpdateTimestamp
     private LocalDateTime updatedAt;
 }
