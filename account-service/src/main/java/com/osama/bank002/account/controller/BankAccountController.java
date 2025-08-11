@@ -1,16 +1,21 @@
 package com.osama.bank002.account.controller;
 
 
+import com.osama.bank002.account.client.ProfileClient;
+import com.osama.bank002.account.client.dto.ProfileSummary;
 import com.osama.bank002.account.dto.OpenAccountRequest;
 import com.osama.bank002.account.dto.response.BankResponse;
 import com.osama.bank002.account.dto.response.CreditDebitResponse;
 import com.osama.bank002.account.dto.response.EnquiryRequest;
+import com.osama.bank002.account.entity.BankAccount;
 import com.osama.bank002.account.repository.BankAccountRepository;
 import com.osama.bank002.account.service.BankAccountService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 
@@ -21,6 +26,7 @@ public class BankAccountController {
 
     private final BankAccountService service;
     private final BankAccountRepository repository;
+    private final ProfileClient profileClient;
 
     // Create/open account
     @PostMapping
@@ -60,6 +66,14 @@ public class BankAccountController {
     public BankResponse credit(@PathVariable String accountNumber,
                                @RequestParam BigDecimal amount) {
         return service.creditAccount(new CreditDebitResponse(accountNumber, amount));
+    }
+
+    @GetMapping("/{accountNumber}/owner")
+    public ProfileSummary owner(@PathVariable String accountNumber) {
+        BankAccount a = repository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        var prof = profileClient.getByProfileId(a.getProfileId());
+        return prof; // contains profileId, fullName, email
     }
 
     // Debit

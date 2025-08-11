@@ -1,6 +1,7 @@
 package com.osama.bank002.account.service;
 
 import com.osama.bank002.account.client.ProfileClient;
+import com.osama.bank002.account.client.TransactionClient;
 import com.osama.bank002.account.client.dto.ProfileSummary;
 import com.osama.bank002.account.dto.AccountDto;
 import com.osama.bank002.account.dto.EmailDetails;
@@ -8,6 +9,7 @@ import com.osama.bank002.account.dto.response.AccountInfo;
 import com.osama.bank002.account.dto.response.BankResponse;
 import com.osama.bank002.account.dto.response.CreditDebitResponse;
 import com.osama.bank002.account.dto.response.EnquiryRequest;
+import com.osama.bank002.account.dto.transaction.LogTransactionRequest;
 import com.osama.bank002.account.entity.BankAccount;
 import com.osama.bank002.account.repository.BankAccountRepository;
 import com.osama.bank002.account.utils.AccountUtils;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
@@ -30,6 +33,7 @@ public class BankAccountServiceImpl implements BankAccountService{
     private final BankAccountRepository repo;
     private final EmailService emailService;
     private final ProfileClient profileClient;
+    private final TransactionClient transactionClient;
 
     @Transactional
     @Override
@@ -150,6 +154,11 @@ public class BankAccountServiceImpl implements BankAccountService{
                 .build();
         emailService.sendEmailAlert(creationAlert);
 
+        // Transaction Alert
+        transactionClient.log(new LogTransactionRequest(
+                accountOperations.getAccountNumber(), "CREDIT", req.amount(), "SUCCESS", LocalDateTime.now()
+        ));
+
         return BankResponse.builder()
                 .responseCode(AccountUtils.ACCOUNT_CREDITED_SUCCESS_CODE)
                 .responseMessage(AccountUtils.ACCOUNT_CREDITED_SUCCESS_MESSAGE)
@@ -184,7 +193,7 @@ public class BankAccountServiceImpl implements BankAccountService{
         }
 
         accountOperations.setBalance(accountOperations.getBalance().subtract(amt));
-        // transactionClient.log(acc.getAccountNumber(), "DEBIT", req.amount()); // optional
+
 
         /**
          * Email Configration
@@ -197,6 +206,12 @@ public class BankAccountServiceImpl implements BankAccountService{
                         .formatted(req.amount(), accountOperations.getDisplayName()))
                 .build();
         emailService.sendEmailAlert(creationAlert);
+
+        // Transaction Alert
+        transactionClient.log(new LogTransactionRequest(
+                accountOperations.getAccountNumber(), "DEBIT", req.amount(), "SUCCESS", LocalDateTime.now()
+        ));
+
 
 
         return BankResponse.builder()
