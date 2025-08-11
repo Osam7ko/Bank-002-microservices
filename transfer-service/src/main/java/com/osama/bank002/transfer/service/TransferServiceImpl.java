@@ -1,6 +1,8 @@
 package com.osama.bank002.transfer.service;
 
 import com.osama.bank002.transfer.client.AccountClient;
+import com.osama.bank002.transfer.client.TransactionClient;
+import com.osama.bank002.transfer.client.transaction.LogTransactionRequest;
 import com.osama.bank002.transfer.domain.dto.BankResponse;
 import com.osama.bank002.transfer.domain.dto.TransferRequest;
 import com.osama.bank002.transfer.domain.entity.Transfer;
@@ -25,6 +27,7 @@ public class TransferServiceImpl implements TransferService {
     private final TransferRepository repo;
     private final AccountClient accountClient;
     private final JwtUtils jwtUtils;
+    private final TransactionClient transactionClient;
 
     @Transactional
     @Override
@@ -104,6 +107,10 @@ public class TransferServiceImpl implements TransferService {
             repo.save(pendingTransfer);
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Credit failed; compensated", ex);
         }
+        // Transaction Alert
+        transactionClient.log(new LogTransactionRequest(
+                pendingTransfer.getRequesterUserId(), "TRANSFER", req.amount(), "SUCCESS", LocalDateTime.now()
+        ));
         // success
         pendingTransfer.setStatus("SUCCESS");
         pendingTransfer.setUpdatedAt(LocalDateTime.now());
