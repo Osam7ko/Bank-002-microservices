@@ -10,10 +10,10 @@ import org.springframework.context.annotation.Configuration;
 public class OpenAPIConfig {
 
     @Bean
-    public OpenAPI profileServiceApi() {
+    public OpenAPI transferServiceApi() {
         return new OpenAPI()
-                .info(new Info().title("Profile Service API")
-                        .description("This is the REST API for Profile Service")
+                .info(new Info().title("Transfer Service API")
+                        .description("This is the REST API for transfer Service")
                         .version("v0.0.1")
                         .license(new License().name("Apache 2.0")));
 

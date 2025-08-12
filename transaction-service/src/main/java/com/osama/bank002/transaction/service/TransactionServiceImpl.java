@@ -133,6 +133,7 @@ public class TransactionServiceImpl implements TransactionService {
             info.setSpacingAfter(20f);
             info.setWidths(new float[]{1f, 1f});
 
+            // left column
             PdfPCell left = new PdfPCell();
             left.setBorder(Rectangle.BOX);
             left.setPadding(15f);
@@ -140,9 +141,10 @@ public class TransactionServiceImpl implements TransactionService {
             lp.add(new Chunk("CUSTOMER INFORMATION\n", boldFont));
             lp.add(new Chunk("Name: " + customerName + "\n", normalFont));
             lp.add(new Chunk("Account Number: " + accountNumber + "\n", normalFont));
+            left.addElement(lp);                  // <-- add element first
             info.addCell(left);
-            left.addElement(lp);
 
+            // right column
             PdfPCell right = new PdfPCell();
             right.setBorder(Rectangle.BOX);
             right.setPadding(15f);

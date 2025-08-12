@@ -6,7 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
 
-public interface BeneficiaryRepository extends JpaRepository<SavedBeneficiary,Long> {
-    List<SavedBeneficiary> findByOwnerUserIdOrderByCreatedAtDesc(String ownerUserId);
+public interface BeneficiaryRepository extends JpaRepository<SavedBeneficiary, Long> {
     Optional<SavedBeneficiary> findByOwnerUserIdAndAccountNumber(String ownerUserId, String accountNumber);
+
+    List<SavedBeneficiary> findByOwnerUserIdOrderByCreatedAtDesc(String ownerUserId);
 }

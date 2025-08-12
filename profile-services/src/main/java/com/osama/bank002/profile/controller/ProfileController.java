@@ -1,6 +1,5 @@
 package com.osama.bank002.profile.controller;
 
-import com.osama.bank002.profile.client.AccountClient;
 import com.osama.bank002.profile.dto.ProfileResponse;
 import com.osama.bank002.profile.dto.ProfileUpdateRequest;
 import com.osama.bank002.profile.mapper.ProfileMapper;
@@ -12,8 +11,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -23,7 +20,6 @@ import org.springframework.web.bind.annotation.*;
 public class ProfileController {
 
     private final ProfileService service;
-    private final AccountClient accountClient;
 
     // ProfileController
     @GetMapping("/id/{profileId}")
@@ -34,20 +30,14 @@ public class ProfileController {
     @PostMapping("/bootstrap")
     @Operation(
             summary = "Checking exists",
-            description = "First call after login to ensure a row exists"
+            description = "Ensure profile exists & open default account once"
     )
     @ApiResponse(
             responseCode = "200",
             description = "Http Status 200 OK"
     )
-//    public ProfileResponse bootstrap(@AuthenticationPrincipal Jwt jwt) {
-//        Profile p = service.bootstrapIfMissing(jwt); // transaction commits here
-//        String displayName = (p.getFirstName() + " " + p.getLastName()).trim();
-//        accountClient.open(new OpenAccountRequest(p.getId().toString(), displayName));
-//        return ProfileMapper.toDto(p);
-//    }
-    public ProfileResponse bootstrap(@AuthenticationPrincipal Jwt jwt) {
-        return ProfileMapper.toDto(service.bootstrapIfMissing(jwt));
+    public ProfileResponse bootstrap() {
+        return ProfileMapper.toDto(service.bootstrapIfMissing());
     }
 
     @GetMapping("/me")
@@ -59,8 +49,8 @@ public class ProfileController {
             responseCode = "200",
             description = "Http Status 200 OK"
     )
-    public ProfileResponse me(@AuthenticationPrincipal Jwt jwt) {
-        return ProfileMapper.toDto(service.getMyProfile(jwt));
+    public ProfileResponse me() {
+        return ProfileMapper.toDto(service.getMyProfile());
     }
 
     @PutMapping("/me")
@@ -72,8 +62,8 @@ public class ProfileController {
             responseCode = "201",
             description = "Http Status 200 SUCCESS"
     )
-    public ProfileResponse update(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ProfileUpdateRequest req) {
-        return ProfileMapper.toDto(service.updateMyProfile(jwt, req));
+    public ProfileResponse update(@Valid @RequestBody ProfileUpdateRequest req) {
+        return ProfileMapper.toDto(service.updateMyProfile(req));
     }
 
     // Optional admin endpoint to fetch by userId
@@ -85,7 +75,7 @@ public class ProfileController {
 
     @DeleteMapping("/me")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteMyProfile(@AuthenticationPrincipal Jwt jwt) {
-        service.softDeleteMyProfile(jwt); // throws 409 if accounts exist
+    public void deleteMyProfile() {
+        service.softDeleteMyProfile();
     }
 }

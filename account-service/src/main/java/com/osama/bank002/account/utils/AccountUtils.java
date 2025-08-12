@@ -24,6 +24,7 @@ public class AccountUtils {
 
     public static final String INSUFFICIENT_BALANCE_CODE = "008";
     public static final String INSUFFICIENT_BALANCE_MESSAGE = "Insufficient balance";
+    public static final String ACCOUNT_BLOCKED_CODE = "009";
 
 
     public static String generateAccountNumber(){

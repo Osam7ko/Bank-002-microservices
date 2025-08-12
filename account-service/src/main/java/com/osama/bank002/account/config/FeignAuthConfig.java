@@ -3,18 +3,20 @@ package com.osama.bank002.account.config;
 import feign.RequestInterceptor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.http.HttpHeaders;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Configuration
 public class FeignAuthConfig {
     @Bean
     public RequestInterceptor relayAuthToken() {
         return template -> {
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth instanceof JwtAuthenticationToken jwt) {
-                template.header("Authorization", "Bearer " + jwt.getToken().getTokenValue());
+            var attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attrs == null) return;
+            var hdr = attrs.getRequest().getHeader(HttpHeaders.AUTHORIZATION);
+            if (org.springframework.util.StringUtils.hasText(hdr)) {
+                template.header(HttpHeaders.AUTHORIZATION, hdr);
             }
         };
     }

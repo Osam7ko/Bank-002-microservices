@@ -1,21 +1,32 @@
 package com.osama.bank002.transfer.config;
 
+import com.osama.bank002.transfer.domain.dto.UserPrincipal;
 import feign.RequestInterceptor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
 @Configuration
+@RequiredArgsConstructor
 public class FeignAuthConfig {
+
+    private final ServiceTokenProvider serviceTokenProvider;
+
     @Bean
     public RequestInterceptor relayAuthToken() {
         return template -> {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth instanceof JwtAuthenticationToken jwt) {
-                template.header("Authorization", "Bearer " + jwt.getToken().getTokenValue());
+
+            if (auth != null && auth.getPrincipal() instanceof UserPrincipal p && p.token() != null) {
+                template.header("Authorization", "Bearer " + p.token());
+                return;
             }
+
+            // No user token → service-to-service call
+            String serviceToken = serviceTokenProvider.issueServiceToken();
+            template.header("Authorization", "Bearer " + serviceToken);
         };
     }
 }

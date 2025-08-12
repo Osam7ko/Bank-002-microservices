@@ -3,12 +3,12 @@ package com.osama.bank002.beneficiary.service;
 import com.osama.bank002.beneficiary.client.AccountClient;
 import com.osama.bank002.beneficiary.domain.dto.SaveBeneficiaryRequest;
 import com.osama.bank002.beneficiary.domain.dto.SavedBeneficiaryDto;
+import com.osama.bank002.beneficiary.domain.dto.UserPrincipal;
 import com.osama.bank002.beneficiary.domain.entity.SavedBeneficiary;
 import com.osama.bank002.beneficiary.repository.BeneficiaryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -24,8 +24,14 @@ public class BeneficiaryServiceImpl implements BeneficiaryService {
 
     @Override
     public String currentUserId() {
-        var auth = (JwtAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
-        return auth.getToken().getSubject();
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated())
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
+
+        if (auth.getPrincipal() instanceof UserPrincipal p) {
+            return p.userId();
+        }
+        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid principal");
     }
 
     @Transactional
@@ -33,27 +39,35 @@ public class BeneficiaryServiceImpl implements BeneficiaryService {
     public SavedBeneficiaryDto save(SaveBeneficiaryRequest req) {
         String uid = currentUserId();
 
-        try {
-            String resolved = accountClient.name(req.accountNumber());
-            if (resolved != null && !resolved.isBlank()
-                    && !resolved.equalsIgnoreCase("Account does not exist")) {
+        // idempotency / conflict guard
+        repo.findByOwnerUserIdAndAccountNumber(uid, req.accountNumber())
+                .ifPresent(b -> {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Already saved");
+                });
 
+        // Try to resolve recipient name from account-service (best-effort)
+        String resolvedName = null;
+        try {
+            var name = accountClient.name(req.accountNumber());
+            if (name != null && !name.isBlank()
+                    && !name.equalsIgnoreCase("Account does not exist")) {
+                resolvedName = name;
             }
         } catch (Exception ignored) {
         }
 
-        if (repo.findByOwnerUserIdAndAccountNumber(uid, req.accountNumber()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Already saved");
-        }
+        String finalName = (req.beneficiaryName() != null && !req.beneficiaryName().isBlank())
+                ? req.beneficiaryName()
+                : (resolvedName != null ? resolvedName : "Recipient " + req.accountNumber());
 
-        var createdSavedBeneficiary = SavedBeneficiary.builder()
+        SavedBeneficiary created = SavedBeneficiary.builder()
                 .ownerUserId(uid)
-                .beneficiaryName(req.beneficiaryName())
+                .beneficiaryName(finalName)
                 .accountNumber(req.accountNumber())
-                .bankName(req.bankName())
+                .bankName((req.bankName() == null || req.bankName().isBlank()) ? "001 Bank" : req.bankName())
                 .build();
 
-        var saved = repo.save(createdSavedBeneficiary);
+        var saved = repo.save(created);
         return new SavedBeneficiaryDto(saved.getId(), saved.getBeneficiaryName(), saved.getAccountNumber(), saved.getBankName());
     }
 
@@ -62,10 +76,7 @@ public class BeneficiaryServiceImpl implements BeneficiaryService {
     public List<SavedBeneficiaryDto> listMine() {
         String uid = currentUserId();
         return repo.findByOwnerUserIdOrderByCreatedAtDesc(uid).stream()
-                .map(
-                        b -> new SavedBeneficiaryDto(b.getId(), b.getBeneficiaryName(), b.getAccountNumber(), b.getBankName())
-
-                )
+                .map(b -> new SavedBeneficiaryDto(b.getId(), b.getBeneficiaryName(), b.getAccountNumber(), b.getBankName()))
                 .toList();
     }
 
@@ -74,7 +85,7 @@ public class BeneficiaryServiceImpl implements BeneficiaryService {
     public void deleteById(Long id) {
         String uid = currentUserId();
         var b = repo.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        if (!b.getOwnerUserId().equals(uid)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        if (!uid.equals(b.getOwnerUserId())) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         repo.delete(b);
     }
 

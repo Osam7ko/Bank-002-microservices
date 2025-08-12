@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,6 +23,7 @@ public class TransactionController {
     private final TransactionService service;
 
     // Called by account-service / transfer-service to record an event
+    @PreAuthorize("hasAuthority('SERVICE') or hasAuthority('ADMIN')")
     @PostMapping("/transactions/log")
     @Operation(summary = "Log a transaction")
     public TransactionDto log(@Valid @RequestBody LogTransactionRequest req) {

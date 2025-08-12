@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 @FeignClient(name = "ACCOUNT-SERVICE", configuration = FeignAuthConfig.class)
 public interface AccountClient {
-
     @PostMapping("/api/accounts")
     BankResponse open(@RequestBody OpenAccountRequest req);
 

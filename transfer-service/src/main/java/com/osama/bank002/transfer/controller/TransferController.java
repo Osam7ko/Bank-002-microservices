@@ -6,8 +6,6 @@ import com.osama.bank002.transfer.service.TransferService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -19,9 +17,8 @@ public class TransferController {
 
     @PostMapping
     @Operation(summary = "Transfer funds", description = "Debits source then credits destination with idempotency")
-    public BankResponse transfer(@AuthenticationPrincipal Jwt jwt,
-                                 @Valid @RequestBody TransferRequest req,
+    public BankResponse transfer(@Valid @RequestBody TransferRequest req,
                                  @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
-        return service.transfer(jwt, req, idempotencyKey);
+        return service.transfer(req, idempotencyKey);
     }
 }

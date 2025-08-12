@@ -22,7 +22,7 @@ public class BankAccount {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name="account_number", nullable=false, length=20)
+    @Column(unique = true, nullable = false)
     private String accountNumber;
 
     @Column(name="profile_id", nullable=false, length=64)

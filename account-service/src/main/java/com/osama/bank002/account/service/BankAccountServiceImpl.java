@@ -16,7 +16,9 @@ import com.osama.bank002.account.utils.AccountUtils;
 import com.osama.bank002.account.utils.Money;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -25,15 +27,19 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+import static org.springframework.http.ResponseEntity.notFound;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class BankAccountServiceImpl implements BankAccountService{
+public class BankAccountServiceImpl implements BankAccountService {
 
     private final BankAccountRepository repo;
     private final EmailService emailService;
     private final ProfileClient profileClient;
     private final TransactionClient transactionClient;
+
+    private static final int MAX_RETRIES = 3;
 
     @Transactional
     @Override
@@ -41,28 +47,22 @@ public class BankAccountServiceImpl implements BankAccountService{
         var profile = profileClient.getByProfileId(profileId);
 
         String accountNumber = AccountUtils.generateAccountNumber();
-
         String finalDisplay = (displayName == null || displayName.isBlank())
                 ? profile.fullName()
                 : displayName;
 
-
-        BankAccount createdAccount = BankAccount.builder()
+        BankAccount savedAccount = repo.save(BankAccount.builder()
                 .accountNumber(accountNumber)
                 .profileId(profileId)
                 .displayName(finalDisplay)
                 .balance(BigDecimal.ZERO)
                 .status("ACTIVE")
-                .build();
+                .build());
 
-        BankAccount savedAccount = repo.save(createdAccount);
-
-        /**
-         * Email Configration
-         */
+        // Best-effort email; never fail the transaction for a mail error
         try {
             if (org.springframework.util.StringUtils.hasText(profile.email())) {
-                EmailDetails creationAlert = EmailDetails.builder()
+                emailService.sendEmailAlert(EmailDetails.builder()
                         .recipient(profile.email())
                         .subject("Account creation")
                         .messageBody("""
@@ -70,13 +70,11 @@ public class BankAccountServiceImpl implements BankAccountService{
                 Account Name: %s
                 Account Number: %s
                 """.formatted(finalDisplay, accountNumber))
-                        .build();
-                emailService.sendEmailAlert(creationAlert);
+                        .build());
             } else {
                 log.warn("Profile {} has no email; skipping creation email", profileId);
             }
         } catch (Exception e) {
-            // swallow so the transaction isn’t rolled back just because email failed
             log.error("Non-fatal: email failed for profile {}", profileId, e);
         }
 
@@ -91,32 +89,24 @@ public class BankAccountServiceImpl implements BankAccountService{
                 .build();
     }
 
-    @Override
     @Transactional(readOnly = true)
+    @Override
     public BankResponse balanceEnquiry(EnquiryRequest req) {
-        var accountOperations = repo.findByAccountNumber(req.accountNumber());
-        if(accountOperations.isEmpty()){
-            return BankResponse.builder()
-                    .responseCode(AccountUtils.ACCOUNT_NOT_EXISTS_CODE)
-                    .responseMessage(AccountUtils.ACCOUNT_NOT_EXISTS_MESSAGE)
-                    .accountInfo(null)
-                    .build();
-        }
-
-        BankAccount account = accountOperations.get();
-        return BankResponse.builder()
-                .responseCode(AccountUtils.ACCOUNT_FOUND_CODE)
-                .responseMessage(AccountUtils.ACCOUNT_FOUND_SUCCESS)
-                .accountInfo(AccountInfo.builder()
-                        .accountName(account.getDisplayName())
-                        .accountNumber(account.getAccountNumber())
-                        .accountBalance(account.getBalance())
+        return repo.findByAccountNumber(req.accountNumber())
+                .map(a -> BankResponse.builder()
+                        .responseCode(AccountUtils.ACCOUNT_FOUND_CODE)
+                        .responseMessage(AccountUtils.ACCOUNT_FOUND_SUCCESS)
+                        .accountInfo(AccountInfo.builder()
+                                .accountName(a.getDisplayName())
+                                .accountNumber(a.getAccountNumber())
+                                .accountBalance(a.getBalance())
+                                .build())
                         .build())
-                .build();
+                .orElseGet(this::notFound);
     }
 
-    @Override
     @Transactional(readOnly = true)
+    @Override
     public String nameEnquiry(EnquiryRequest req) {
         return repo.findByAccountNumber(req.accountNumber())
                 .map(a -> (a.getDisplayName() == null || a.getDisplayName().isBlank())
@@ -125,110 +115,165 @@ public class BankAccountServiceImpl implements BankAccountService{
                 .orElse(AccountUtils.ACCOUNT_NOT_EXISTS_MESSAGE);
     }
 
-    @Override
     @Transactional
+    @Override
     public BankResponse creditAccount(CreditDebitResponse req) {
+        BigDecimal amt = Money.normalize(req.amount());
 
-        BankAccount accountOperations = repo.findByAccountNumber(req.accountNumber())
-                .orElse(null);
-        if (accountOperations == null) {
-            return BankResponse.builder()
-                    .responseCode(AccountUtils.ACCOUNT_NOT_EXISTS_CODE)
-                    .responseMessage(AccountUtils.ACCOUNT_NOT_EXISTS_MESSAGE)
-                    .accountInfo(null)
-                    .build();
+        for (int i = 0; i < MAX_RETRIES; i++) {
+            try {
+                var acc = repo.findByAccountNumber(req.accountNumber()).orElse(null);
+                if (acc == null) return notFound();
+                if (!"ACTIVE".equalsIgnoreCase(acc.getStatus())) return blocked("Account is not ACTIVE");
+
+                acc.setBalance(acc.getBalance().add(amt));
+                // JPA flush on commit; @Version will throw if concurrent update
+
+                tryNotifyAndLogCredit(acc, amt);
+                return okCredit(acc);
+
+            } catch (org.springframework.dao.OptimisticLockingFailureException e) {
+                if (i == MAX_RETRIES - 1) throw e;
+                sleepBackoff(i);
+            }
         }
+        throw new IllegalStateException("unreachable");
+    }
 
-        accountOperations.setBalance(accountOperations.getBalance().add(Money.normalize(req.amount())));
-        // transactionClient.log(acc.getAccountNumber(), "CREDIT", req.amount()); // optional
+    @Transactional
+    @Override
+    public BankResponse debitAccount(CreditDebitResponse req) {
+        BigDecimal amt = Money.normalize(req.amount());
 
-        /**
-         * Email Configration
-         */
-        var profile = profileClient.getByProfileId(accountOperations.getProfileId());
-        EmailDetails creationAlert = EmailDetails.builder()
-                .recipient(profile.email())
-                .subject("CREDIT ALERT")
-                .messageBody("The sum of %s SAR has been deposited to your account, %s."
-                        .formatted(req.amount(), accountOperations.getDisplayName()))
+        for (int i = 0; i < MAX_RETRIES; i++) {
+            try {
+                var acc = repo.findByAccountNumber(req.accountNumber()).orElse(null);
+                if (acc == null) return notFound();
+                if (!"ACTIVE".equalsIgnoreCase(acc.getStatus())) return blocked("Account is not ACTIVE");
+
+                if (acc.getBalance().compareTo(amt) < 0) return insufficient();
+
+                acc.setBalance(acc.getBalance().subtract(amt));
+
+                tryNotifyAndLogDebit(acc, amt);
+                return okDebit(acc);
+
+            } catch (org.springframework.dao.OptimisticLockingFailureException e) {
+                if (i == MAX_RETRIES - 1) throw e;
+                sleepBackoff(i);
+            }
+        }
+        throw new IllegalStateException("unreachable");
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public BankAccount getEntity(String accountNumber) {
+        return repo.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+    }
+
+    // ---------- helpers: responses ----------
+    private BankResponse notFound() {
+        return BankResponse.builder()
+                .responseCode(AccountUtils.ACCOUNT_NOT_EXISTS_CODE)
+                .responseMessage(AccountUtils.ACCOUNT_NOT_EXISTS_MESSAGE)
+                .accountInfo(null)
                 .build();
-        emailService.sendEmailAlert(creationAlert);
+    }
 
-        // Transaction Alert
-        transactionClient.log(new LogTransactionRequest(
-                accountOperations.getAccountNumber(), "CREDIT", req.amount(), "SUCCESS", LocalDateTime.now()
-        ));
+    private BankResponse insufficient() {
+        return BankResponse.builder()
+                .responseCode(AccountUtils.INSUFFICIENT_BALANCE_CODE)
+                .responseMessage(AccountUtils.INSUFFICIENT_BALANCE_MESSAGE)
+                .accountInfo(null)
+                .build();
+    }
 
+    private BankResponse blocked(String reason) {
+        return BankResponse.builder()
+                .responseCode(AccountUtils.ACCOUNT_BLOCKED_CODE) // define if missing
+                .responseMessage(reason != null ? reason : "Account is not ACTIVE")
+                .accountInfo(null)
+                .build();
+    }
+
+    private BankResponse okCredit(BankAccount acc) {
         return BankResponse.builder()
                 .responseCode(AccountUtils.ACCOUNT_CREDITED_SUCCESS_CODE)
                 .responseMessage(AccountUtils.ACCOUNT_CREDITED_SUCCESS_MESSAGE)
                 .accountInfo(AccountInfo.builder()
-                        .accountName(accountOperations.getDisplayName())
-                        .accountNumber(accountOperations.getAccountNumber())
-                        .accountBalance(accountOperations.getBalance())
+                        .accountName(acc.getDisplayName())
+                        .accountNumber(acc.getAccountNumber())
+                        .accountBalance(acc.getBalance())
                         .build())
                 .build();
     }
 
-    @Override
-    @Transactional
-    public BankResponse debitAccount(CreditDebitResponse req) {
-        BankAccount accountOperations = repo.findByAccountNumber(req.accountNumber())
-                .orElse(null);
-        if (accountOperations == null) {
-            return BankResponse.builder()
-                    .responseCode(AccountUtils.ACCOUNT_NOT_EXISTS_CODE)
-                    .responseMessage(AccountUtils.ACCOUNT_NOT_EXISTS_MESSAGE)
-                    .accountInfo(null)
-                    .build();
-        }
-
-        BigDecimal amt = Money.normalize(req.amount());
-        if (accountOperations.getBalance().compareTo(amt) < 0) {
-            return BankResponse.builder()
-                    .responseCode(AccountUtils.INSUFFICIENT_BALANCE_CODE)
-                    .responseMessage(AccountUtils.INSUFFICIENT_BALANCE_MESSAGE)
-                    .accountInfo(null)
-                    .build();
-        }
-
-        accountOperations.setBalance(accountOperations.getBalance().subtract(amt));
-
-
-        /**
-         * Email Configration
-         */
-        var profile = profileClient.getByProfileId(accountOperations.getProfileId());
-        EmailDetails creationAlert = EmailDetails.builder()
-                .recipient(profile.email())
-                .subject("DEBIT ALERT")
-                .messageBody("The sum of %s SAR has been deducted from your account, %s."
-                        .formatted(req.amount(), accountOperations.getDisplayName()))
-                .build();
-        emailService.sendEmailAlert(creationAlert);
-
-        // Transaction Alert
-        transactionClient.log(new LogTransactionRequest(
-                accountOperations.getAccountNumber(), "DEBIT", req.amount(), "SUCCESS", LocalDateTime.now()
-        ));
-
-
-
+    private BankResponse okDebit(BankAccount acc) {
         return BankResponse.builder()
                 .responseCode(AccountUtils.ACCOUNT_DEBITED_SUCCESS_CODE)
                 .responseMessage(AccountUtils.ACCOUNT_DEBITED_SUCCESS_MESSAGE)
                 .accountInfo(AccountInfo.builder()
-                        .accountName(accountOperations.getDisplayName())
-                        .accountNumber(accountOperations.getAccountNumber())
-                        .accountBalance(accountOperations.getBalance())
+                        .accountName(acc.getDisplayName())
+                        .accountNumber(acc.getAccountNumber())
+                        .accountBalance(acc.getBalance())
                         .build())
                 .build();
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public BankAccount getEntity(String accountNumber) {
-        return repo.findByAccountNumber(accountNumber)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+    // ---------- helpers: best-effort notify + log ----------
+    private void tryNotifyAndLogCredit(BankAccount acc, BigDecimal amount) {
+        try {
+            var profile = profileClient.getByProfileId(acc.getProfileId());
+            if (org.springframework.util.StringUtils.hasText(profile.email())) {
+                emailService.sendEmailAlert(EmailDetails.builder()
+                        .recipient(profile.email())
+                        .subject("CREDIT ALERT")
+                        .messageBody("The sum of %s SAR has been deposited to your account, %s."
+                                .formatted(amount, acc.getDisplayName()))
+                        .build());
+            }
+        } catch (Exception e) {
+            log.warn("Credit email failed for {}", acc.getAccountNumber(), e);
+        }
+
+        try {
+            transactionClient.log(new LogTransactionRequest(
+                    acc.getAccountNumber(), "CREDIT", amount, "SUCCESS", LocalDateTime.now()
+            ));
+        } catch (Exception e) {
+            log.warn("Txn log failed for {}", acc.getAccountNumber(), e);
+        }
+    }
+
+    private void tryNotifyAndLogDebit(BankAccount acc, BigDecimal amount) {
+        try {
+            var profile = profileClient.getByProfileId(acc.getProfileId());
+            if (org.springframework.util.StringUtils.hasText(profile.email())) {
+                emailService.sendEmailAlert(EmailDetails.builder()
+                        .recipient(profile.email())
+                        .subject("DEBIT ALERT")
+                        .messageBody("The sum of %s SAR has been deducted from your account, %s."
+                                .formatted(amount, acc.getDisplayName()))
+                        .build());
+            }
+        } catch (Exception e) {
+            log.warn("Debit email failed for {}", acc.getAccountNumber(), e);
+        }
+
+        try {
+            transactionClient.log(new LogTransactionRequest(
+                    acc.getAccountNumber(), "DEBIT", amount, "SUCCESS", LocalDateTime.now()
+            ));
+        } catch (Exception e) {
+            log.warn("Txn log failed for {}", acc.getAccountNumber(), e);
+        }
+    }
+
+    private void sleepBackoff(int attempt) {
+        try {
+            Thread.sleep(50L * (attempt + 1)); // tiny backoff
+        } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
     }
 }

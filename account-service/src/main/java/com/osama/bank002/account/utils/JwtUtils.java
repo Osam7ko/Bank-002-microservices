@@ -1,4 +1,5 @@
-package com.osama.bank002.profile.util;
+package com.osama.bank002.account.utils;
+
 
 import io.jsonwebtoken.Claims;
 import org.springframework.security.core.context.SecurityContextHolder;

@@ -8,11 +8,10 @@ import com.osama.bank002.transfer.domain.dto.TransferRequest;
 import com.osama.bank002.transfer.domain.entity.Transfer;
 import com.osama.bank002.transfer.repository.TransferRepository;
 import com.osama.bank002.transfer.util.AccountUtils;
-import com.osama.bank002.transfer.util.JwtUtils;
+import com.osama.bank002.transfer.util.SecurityUtils;
 import jakarta.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -26,13 +25,12 @@ public class TransferServiceImpl implements TransferService {
 
     private final TransferRepository repo;
     private final AccountClient accountClient;
-    private final JwtUtils jwtUtils;
     private final TransactionClient transactionClient;
 
     @Transactional
     @Override
-    public BankResponse transfer(Jwt jwt, TransferRequest req, @Nullable String idemHeader) {
-        String requester = jwtUtils.userId(jwt);
+    public BankResponse transfer(TransferRequest req, @Nullable String idemHeader) {
+        String requester = SecurityUtils.currentUserId();
         String idem = (req.idempotencyKey() != null && !req.idempotencyKey().isBlank())
                 ? req.idempotencyKey()
                 : (idemHeader != null && !idemHeader.isBlank() ? idemHeader : UUID.randomUUID().toString());

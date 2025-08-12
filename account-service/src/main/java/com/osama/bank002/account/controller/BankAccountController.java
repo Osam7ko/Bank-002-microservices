@@ -3,6 +3,7 @@ package com.osama.bank002.account.controller;
 
 import com.osama.bank002.account.client.ProfileClient;
 import com.osama.bank002.account.client.dto.ProfileSummary;
+import com.osama.bank002.account.dto.AccountDto;
 import com.osama.bank002.account.dto.OpenAccountRequest;
 import com.osama.bank002.account.dto.response.BankResponse;
 import com.osama.bank002.account.dto.response.CreditDebitResponse;
@@ -12,6 +13,8 @@ import com.osama.bank002.account.repository.BankAccountRepository;
 import com.osama.bank002.account.service.BankAccountService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -63,8 +66,9 @@ public class BankAccountController {
     @Operation(
             summary = "Credit", description = "Credits amount to the account"
     )
-    public BankResponse credit(@PathVariable String accountNumber,
-                               @RequestParam BigDecimal amount) {
+    public BankResponse credit(
+            @PathVariable @Pattern(regexp="\\d{10,20}") String accountNumber,
+            @RequestParam @DecimalMin(value = "0.01") BigDecimal amount) {
         return service.creditAccount(new CreditDebitResponse(accountNumber, amount));
     }
 
@@ -79,8 +83,9 @@ public class BankAccountController {
     // Debit
     @PostMapping("/{accountNumber}/debit")
     @Operation(summary = "Debit", description = "Debits amount from the account")
-    public BankResponse debit(@PathVariable String accountNumber,
-                              @RequestParam BigDecimal amount) {
+    public BankResponse debit(
+            @PathVariable @Pattern(regexp="\\d{10,20}") String accountNumber,
+            @RequestParam @DecimalMin(value = "0.01") BigDecimal amount) {
         return service.debitAccount(new CreditDebitResponse(accountNumber, amount));
     }
 
@@ -88,5 +93,12 @@ public class BankAccountController {
     @Operation(summary = "Count accounts for a profile", description = "Used by profile-service to decide auto-open")
     public int countByOwner(@PathVariable String profileId) {
         return repository.countByProfileId(profileId);
+    }
+
+    @GetMapping("/{accountNumber}")
+    @Operation(summary = "Get account by number", description = "Used by card-service and FE")
+    public AccountDto get(@PathVariable String accountNumber) {
+        var a = service.getEntity(accountNumber);
+        return new AccountDto(a.getAccountNumber(), a.getProfileId(), a.getDisplayName(), a.getBalance(), a.getStatus());
     }
 }

@@ -10,7 +10,6 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -25,11 +24,12 @@ public class ProfileServiceImpl implements ProfileService {
 
     @Transactional
     @Override
-    public Profile bootstrapIfMissing(Jwt jwt) {
-        String uid = jwtUtils.userId(jwt);
-
-        Profile p = repo.findByUserId(uid).orElseGet(() -> repo.save(Profile.builder()
-                .userId(uid).firstName("New").lastName("User").status("ACTIVE").build()));
+    public Profile bootstrapIfMissing() {
+        String uid = jwtUtils.userIdString();   // now from our filter
+        Profile p = repo.findByUserId(uid).orElseGet(() ->
+                repo.save(Profile.builder()
+                        .userId(uid).firstName("New").lastName("User").status("ACTIVE").build())
+        );
 
         // open default account ONCE
         int count = accountClient.countOpenAccounts(p.getId().toString());
@@ -40,26 +40,19 @@ public class ProfileServiceImpl implements ProfileService {
         return p;
     }
 
-    private boolean isFirstAccountNeeded(Profile p) {
-        // simplest: add a boolean column 'has_default_account' on profile, or
-        // call account-service GET /api/accounts/owner/{profileId}/count.
-        // For now return true if you want to always open at first bootstrap:
-        return true;
-    }
-
     @Override
-    public Profile getMyProfile(Jwt jwt) {
-        return repo.findByUserId(jwtUtils.userId(jwt))
+    public Profile getMyProfile() {
+        String uid = jwtUtils.userIdString();
+        return repo.findByUserId(uid)
                 .orElseThrow(() -> new EntityNotFoundException("Profile not found"));
     }
 
     @Transactional
     @Override
-    public Profile updateMyProfile(Jwt jwt, ProfileUpdateRequest req) {
-        Profile p = getMyProfile(jwt);
-        // optimistic locking via @Version if concurrent updates happen
+    public Profile updateMyProfile(ProfileUpdateRequest req) {
+        Profile p = getMyProfile();
         com.osama.bank002.profile.mapper.ProfileMapper.apply(req, p);
-        return p; // dirty checking persists changes
+        return p;
     }
 
     // Admin-only helper (optional)
@@ -72,9 +65,8 @@ public class ProfileServiceImpl implements ProfileService {
 
     @Transactional
     @Override
-    public void softDeleteMyProfile(Jwt jwt) {
-        var uid = jwtUtils.userId(jwt);
-        // TODO: call account-service: GET /api/accounts/owner/{userId}/count
+    public void softDeleteMyProfile() {
+        String uid = jwtUtils.userIdString();
         int openCount = accountClient.countOpenAccounts(uid);
         if (openCount > 0) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -83,14 +75,11 @@ public class ProfileServiceImpl implements ProfileService {
         Profile p = repo.findByUserId(uid)
                 .orElseThrow(() -> new EntityNotFoundException("Profile not found"));
         p.setStatus("DELETED");
-        // Optional: scrub PII if you must comply with erasure
-        // p.setFirstName("DELETED"); p.setPhoneNumber(null); ...
     }
 
-
+    @Override
     public Profile getByProfileId(Long profileId) {
         return repo.findById(profileId)
                 .orElseThrow(() -> new EntityNotFoundException("Profile not found: " + profileId));
     }
-
 }
