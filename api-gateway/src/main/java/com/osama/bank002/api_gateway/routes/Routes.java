@@ -21,39 +21,50 @@ public class Routes {
 				.build();
 	}
 
+//	ACCOUNT-SERVICE
 	@Bean
 	public RouterFunction<ServerResponse> accountRoute() {
 		return RouterFunctions.route()
-				.route(RequestPredicates.path("/api/accounts/**"), HandlerFunctions.http("http://localhost:8102"))
+				.route(RequestPredicates.path("/api/accounts/**"), HandlerFunctions.http("http://localhost:8081"))
 				.build();
 	}
 
+//	transfers-SERVICE
 	@Bean
 	public RouterFunction<ServerResponse> transferRoute() {
 		return RouterFunctions.route()
-				.route(RequestPredicates.path("/api/transfers/**"), HandlerFunctions.http("http://localhost:8104"))
+				.route(RequestPredicates.path("/api/transfers/**"), HandlerFunctions.http("http://localhost:8082"))
 				.build();
 	}
 
+// transactions-Service
 	@Bean
 	public RouterFunction<ServerResponse> transactionRoute() {
 		return RouterFunctions.route()
-				.route(RequestPredicates.path("/api/transactions/**"), HandlerFunctions.http("http://localhost:8105"))
-				.route(RequestPredicates.path("/api/statements/**"), HandlerFunctions.http("http://localhost:8105"))
+				.route(RequestPredicates.path("/api/transactions/**"), HandlerFunctions.http("http://localhost:8085"))
+				.route(RequestPredicates.path("/api/statements/**"), HandlerFunctions.http("http://localhost:8085"))
 				.build();
 	}
 
+//	beneficiary-SERVICE
 	@Bean
 	public RouterFunction<ServerResponse> beneficiaryRoute() {
 		return RouterFunctions.route()
-				.route(RequestPredicates.path("/api/beneficiaries/**"), HandlerFunctions.http("http://localhost:8106"))
+				.route(RequestPredicates.path("/api/beneficiaries/**"), HandlerFunctions.http("http://localhost:8084"))
 				.build();
 	}
 
 	@Bean
 	public RouterFunction<ServerResponse> cardRoute() {
 		return RouterFunctions.route()
-				.route(RequestPredicates.path("/api/cards/**"), HandlerFunctions.http("http://localhost:8103")).build();
+				.route(RequestPredicates.path("/api/cards/**"), HandlerFunctions.http("http://localhost:8083")).build();
+	}
+
+//	AUTH-SERVICE
+	@Bean
+	public RouterFunction<ServerResponse> authRoute() {
+		return RouterFunctions.route()
+				.route(RequestPredicates.path("/auth/**"), HandlerFunctions.http("http://localhost:8099")).build();
 	}
 
 	// ===== Swagger aggregation (hit /v3/api-docs directly) =====
@@ -64,34 +75,39 @@ public class Routes {
 				HandlerFunctions.http("http://localhost:8080/v3/api-docs")).build();
 	}
 
+//	ACCOUNT-SERVICE
 	@Bean
 	public RouterFunction<ServerResponse> accountSwagger() {
 		return RouterFunctions.route().route(RequestPredicates.path("/aggregate/account-service/v3/api-docs"),
-				HandlerFunctions.http("http://localhost:8102/v3/api-docs")).build();
+				HandlerFunctions.http("http://localhost:8081/v3/api-docs")).build();
 	}
+
+//	transfers-SERVICE
 
 	@Bean
 	public RouterFunction<ServerResponse> transferSwagger() {
 		return RouterFunctions.route().route(RequestPredicates.path("/aggregate/transfer-service/v3/api-docs"),
-				HandlerFunctions.http("http://localhost:8104/v3/api-docs")).build();
+				HandlerFunctions.http("http://localhost:8082/v3/api-docs")).build();
 	}
 
+	// transactions-Service
 	@Bean
 	public RouterFunction<ServerResponse> transactionSwagger() {
 		return RouterFunctions.route().route(RequestPredicates.path("/aggregate/transaction-service/v3/api-docs"),
-				HandlerFunctions.http("http://localhost:8105/v3/api-docs")).build();
+				HandlerFunctions.http("http://localhost:8085/v3/api-docs")).build();
 	}
 
+//	beneficiary-SERVICE
 	@Bean
 	public RouterFunction<ServerResponse> beneficiarySwagger() {
 		return RouterFunctions.route().route(RequestPredicates.path("/aggregate/beneficiary-service/v3/api-docs"),
-				HandlerFunctions.http("http://localhost:8106/v3/api-docs")).build();
+				HandlerFunctions.http("http://localhost:8084/v3/api-docs")).build();
 	}
 
 	@Bean
 	public RouterFunction<ServerResponse> cardSwagger() {
 		return RouterFunctions.route().route(RequestPredicates.path("/aggregate/card-service/v3/api-docs"),
-				HandlerFunctions.http("http://localhost:8103/v3/api-docs")).build();
+				HandlerFunctions.http("http://localhost:8083/v3/api-docs")).build();
 	}
 
 	// Fallback (optional)
