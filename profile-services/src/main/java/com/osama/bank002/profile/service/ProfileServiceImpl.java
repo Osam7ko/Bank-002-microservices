@@ -1,14 +1,16 @@
 package com.osama.bank002.profile.service;
 
 import com.osama.bank002.profile.client.AccountClient;
-import com.osama.bank002.profile.client.dto.OpenAccountRequest;
+import com.osama.bank002.profile.dto.ProfileCompletedEvent;
 import com.osama.bank002.profile.dto.ProfileUpdateRequest;
 import com.osama.bank002.profile.entity.Profile;
+import com.osama.bank002.profile.mapper.ProfileMapper;
 import com.osama.bank002.profile.repository.ProfileRepository;
 import com.osama.bank002.profile.util.JwtUtils;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -21,23 +23,28 @@ public class ProfileServiceImpl implements ProfileService {
 
     private final JwtUtils jwtUtils;
     private final AccountClient accountClient;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     @Override
     public Profile bootstrapIfMissing() {
-        String uid = jwtUtils.userIdString();   // now from our filter
-        Profile p = repo.findByUserId(uid).orElseGet(() ->
-                repo.save(Profile.builder()
-                        .userId(uid).firstName("New").lastName("User").status("ACTIVE").build())
-        );
+        String uid = jwtUtils.userIdString();
 
-        // open default account ONCE
-        int count = accountClient.countOpenAccounts(p.getId().toString());
-        if (count == 0) {
-            String displayName = (p.getFirstName() + " " + p.getLastName()).trim();
-            accountClient.open(new OpenAccountRequest(p.getId().toString(), displayName));
-        }
-        return p;
+        return repo.findByUserId(uid).orElseGet(() -> {
+            // best-effort: try get email from JWT (if your auth puts it there)
+            String email = jwtUtils.email();
+            if (email == null || email.isBlank()) {
+                // fallback to a temporary address that is syntactically valid
+                email = "pending-" + uid + "@example.local";
+            }
+            return repo.save(Profile.builder()
+                    .userId(uid)
+                    .firstName("New")
+                    .lastName("User")
+                    .status("ACTIVE")
+                    .email(email)
+                    .build());
+        });
     }
 
     @Override
@@ -51,7 +58,12 @@ public class ProfileServiceImpl implements ProfileService {
     @Override
     public Profile updateMyProfile(ProfileUpdateRequest req) {
         Profile p = getMyProfile();
-        com.osama.bank002.profile.mapper.ProfileMapper.apply(req, p);
+        ProfileMapper.apply(req, p); // write the real data
+        // after flush/commit, publish completion
+        events.publishEvent(new ProfileCompletedEvent(
+                p.getId(),
+                (p.getFirstName() + " " + p.getLastName()).trim()
+        ));
         return p;
     }
 

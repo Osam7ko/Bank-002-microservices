@@ -9,6 +9,7 @@ import com.osama.bank002.account.dto.response.BankResponse;
 import com.osama.bank002.account.dto.response.CreditDebitResponse;
 import com.osama.bank002.account.dto.response.EnquiryRequest;
 import com.osama.bank002.account.entity.BankAccount;
+import com.osama.bank002.account.mapper.AccountMapper;
 import com.osama.bank002.account.repository.BankAccountRepository;
 import com.osama.bank002.account.service.BankAccountService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/accounts")
@@ -100,5 +102,21 @@ public class BankAccountController {
     public AccountDto get(@PathVariable String accountNumber) {
         var a = service.getEntity(accountNumber);
         return new AccountDto(a.getAccountNumber(), a.getProfileId(), a.getDisplayName(), a.getBalance(), a.getStatus());
+    }
+
+    @GetMapping("/owner/{profileId}")
+    @Operation(summary = "List accounts owned by a profile")
+    public List<AccountDto> listByOwner(@PathVariable String profileId) {
+        return repository.findByProfileIdOrderByCreatedAtAsc(profileId)
+                .stream().map(AccountMapper::toDto).toList();
+    }
+
+    // (optional helper to pick a default)
+    @GetMapping("/owner/{profileId}/default")
+    public AccountDto defaultForOwner(@PathVariable String profileId) {
+        return repository.findByProfileIdOrderByCreatedAtAsc(profileId)
+                .stream().findFirst()
+                .map(AccountMapper::toDto)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 }

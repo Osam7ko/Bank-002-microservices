@@ -23,7 +23,7 @@ public class TransactionController {
     private final TransactionService service;
 
     // Called by account-service / transfer-service to record an event
-    @PreAuthorize("hasAuthority('SERVICE') or hasAuthority('ADMIN')")
+    @PreAuthorize("hasRole('SERVICE') or hasRole('ADMIN')")
     @PostMapping("/transactions/log")
     @Operation(summary = "Log a transaction")
     public TransactionDto log(@Valid @RequestBody LogTransactionRequest req) {

@@ -1,7 +1,9 @@
 package com.osama.bank002.profile.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -47,6 +49,11 @@ public class Profile {
     @Column(name = "other_name")
     private String otherName;
 
+    @Email
+    @Size(max = 100) // It's good practice to set a size for email
+    @Column(name = "email", unique = true, nullable = true)
+    private String email;
+
     @Size(max = 20)
     @Column(name = "gender")
     private String gender;
@@ -59,11 +66,14 @@ public class Profile {
     @Column(name = "state_of_origin")
     private String stateOfOrigin;
 
-    @Size(max = 32)
-    @Column(name = "phone_number")
+    
+    @Size(max = 20)
+    @Pattern(regexp = "^\\d{10,20}$", message = "Phone number must be between 10 and 20 digits")
+    @Column(name = "phone_number", nullable = true)
     private String phoneNumber;
 
-    @Size(max = 32)
+    @Size(max = 20)
+    @Pattern(regexp = "^\\d{10,20}$", message = "Phone number must be between 10 and 20 digits")
     @Column(name = "alt_phone_number")
     private String alternativePhoneNumber;
 

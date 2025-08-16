@@ -16,6 +16,7 @@ import com.osama.bank002.transaction.repository.LedgerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -52,6 +53,8 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     @Transactional
     public TransactionDto log(LogTransactionRequest req) {
+        var a = SecurityContextHolder.getContext().getAuthentication();
+        log.info("txn/log caller={}, authorities={}", a != null ? a.getName() : "null", a != null ? a.getAuthorities() : "null");
         LedgerEntry e = LedgerEntry.builder()
                 .id(UUID.randomUUID().toString())
                 .accountNumber(req.accountNumber())

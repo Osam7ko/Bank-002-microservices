@@ -1,7 +1,9 @@
 package com.osama.bank002.profile.controller;
 
+import com.osama.bank002.profile.client.AccountClient;
 import com.osama.bank002.profile.dto.ProfileResponse;
 import com.osama.bank002.profile.dto.ProfileUpdateRequest;
+import com.osama.bank002.profile.entity.Profile;
 import com.osama.bank002.profile.mapper.ProfileMapper;
 import com.osama.bank002.profile.service.ProfileService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class ProfileController {
 
     private final ProfileService service;
+    private final AccountClient accountClient;
 
     // ProfileController
     @GetMapping("/id/{profileId}")
@@ -28,16 +31,10 @@ public class ProfileController {
     }
 
     @PostMapping("/bootstrap")
-    @Operation(
-            summary = "Checking exists",
-            description = "Ensure profile exists & open default account once"
-    )
-    @ApiResponse(
-            responseCode = "200",
-            description = "Http Status 200 OK"
-    )
+    @Operation(summary = "Ensure profile exists & open default account once")
     public ProfileResponse bootstrap() {
-        return ProfileMapper.toDto(service.bootstrapIfMissing());
+        Profile p = service.bootstrapIfMissing();
+        return ProfileMapper.toDto(p);
     }
 
     @GetMapping("/me")
@@ -63,7 +60,8 @@ public class ProfileController {
             description = "Http Status 200 SUCCESS"
     )
     public ProfileResponse update(@Valid @RequestBody ProfileUpdateRequest req) {
-        return ProfileMapper.toDto(service.updateMyProfile(req));
+        Profile p = service.updateMyProfile(req);  // publishes event
+        return ProfileMapper.toDto(p);
     }
 
     // Optional admin endpoint to fetch by userId

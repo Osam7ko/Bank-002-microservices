@@ -30,8 +30,9 @@ public class JwtUtils {
     }
 
     public String email() {
-        var auth = SecurityContextHolder.getContext().getAuthentication();
-        return auth == null ? null : (String) auth.getPrincipal(); // subject = email
+        var c = claims();
+        Object e = (c == null) ? null : c.get("email");
+        return e == null ? null : e.toString();
     }
 
     @SuppressWarnings("unchecked")

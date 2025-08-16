@@ -8,6 +8,7 @@ public record ProfileResponse(
         String firstName,
         String lastName,
         String otherName,
+        String email,
         String gender,
         String address,
         String stateOfOrigin,
