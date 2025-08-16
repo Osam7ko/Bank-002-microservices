@@ -47,12 +47,15 @@ public class Routes {
 	}
 
 //	beneficiary-SERVICE
-	@Bean
-	public RouterFunction<ServerResponse> beneficiaryRoute() {
-		return RouterFunctions.route()
-				.route(RequestPredicates.path("/api/beneficiaries/**"), HandlerFunctions.http("http://localhost:8084"))
-				.build();
-	}
+@Bean
+public RouterFunction<ServerResponse> beneficiaryRoute() {
+	var base = RequestPredicates.path("/api/beneficiaries");
+	var subs = RequestPredicates.path("/api/beneficiaries/**");
+
+	return RouterFunctions.route()
+			.route(base.or(subs), HandlerFunctions.http("http://localhost:8084"))
+			.build();
+}
 
 	@Bean
 	public RouterFunction<ServerResponse> cardRoute() {
