@@ -1,0 +1,33 @@
+# Node modules (Vue frontend + Express backend)
+**/node_modules
+**/.env
+
+# System files
+.DS_Store
+Thumbs.db
+
+# local env files
+.env.local
+.env.*.local
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor directories and files
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+
+.metadata/
