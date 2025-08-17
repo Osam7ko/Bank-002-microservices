@@ -1,0 +1,38 @@
+global:
+  scrape_interval: 10s
+
+scrape_configs:
+  - job_name: "gateway"
+    static_configs:
+      - targets: ["host.docker.internal:9000"]    # API Gateway actuator on host
+    metrics_path: /actuator/prometheus
+
+  - job_name: "profile"
+    static_configs:
+      - targets: ["host.docker.internal:8080"]
+    metrics_path: /actuator/prometheus
+
+  - job_name: "account"
+    static_configs:
+      - targets: ["host.docker.internal:8081"]
+    metrics_path: /actuator/prometheus
+
+  - job_name: "transfer"
+    static_configs:
+      - targets: ["host.docker.internal:8082"]
+    metrics_path: /actuator/prometheus
+
+  - job_name: "card"
+    static_configs:
+      - targets: ["host.docker.internal:8083"]
+    metrics_path: /actuator/prometheus
+
+  - job_name: "beneficiary"
+    static_configs:
+      - targets: ["host.docker.internal:8084"]
+    metrics_path: /actuator/prometheus
+
+  - job_name: "transaction"
+    static_configs:
+      - targets: ["host.docker.internal:8085"]
+    metrics_path: /actuator/prometheus

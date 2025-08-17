@@ -1,0 +1,45 @@
+version: "3.8"
+services:
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports: ["9090:9090"]
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports: ["3010:3000"]
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-storage:/var/lib/grafana
+
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: loki
+    command: [ "-config.file=/etc/loki/local-config.yaml" ]
+    ports: ["3100:3100"]
+    volumes:
+      - ./loki-config.yaml:/etc/loki/local-config.yaml:ro
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    container_name: promtail
+    volumes:
+      - ./promtail-config.yaml:/etc/promtail/config.yml:ro
+      # Adjust these mounts to where your Spring Boot logs are written
+      - /var/log:/var/log
+    command: [ "-config.file=/etc/promtail/config.yml" ]
+
+  tempo:
+    image: grafana/tempo:2.5.0
+    container_name: tempo
+    command: [ "-config.file=/etc/tempo/tempo.yaml" ]
+    ports: ["3200:3200"]  # OTLP/HTTP ingest disabled here; we’ll use HTTP/Zipkin for simplicity
+    volumes:
+      - ./tempo.yaml:/etc/tempo/tempo.yaml:ro
+
+volumes:
+  grafana-storage:
