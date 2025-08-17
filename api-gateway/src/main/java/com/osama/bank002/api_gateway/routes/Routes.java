@@ -4,6 +4,7 @@ import org.springframework.cloud.gateway.server.mvc.handler.HandlerFunctions;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.function.RequestPredicates;
 import org.springframework.web.servlet.function.RouterFunction;
 import org.springframework.web.servlet.function.RouterFunctions;
@@ -30,12 +31,13 @@ public class Routes {
 	}
 
 //	transfers-SERVICE
-	@Bean
-	public RouterFunction<ServerResponse> transferRoute() {
-		return RouterFunctions.route()
-				.route(RequestPredicates.path("/api/transfers/**"), HandlerFunctions.http("http://localhost:8082"))
-				.build();
-	}
+@Bean
+public RouterFunction<ServerResponse> transferRoute() {
+	return RouterFunctions.route()
+			.route(RequestPredicates.path("/api/transfers/**"),
+					HandlerFunctions.http("http://localhost:8082"))
+			.build();
+}
 
 // transactions-Service
 	@Bean

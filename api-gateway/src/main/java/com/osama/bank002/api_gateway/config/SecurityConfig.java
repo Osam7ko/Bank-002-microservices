@@ -2,6 +2,7 @@ package com.osama.bank002.api_gateway.config;
 
 import java.util.List;
 
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -24,16 +25,29 @@ public class SecurityConfig {
 	private final JwtAuthFilter jwtFilter; // <- same class you use in services
 
 	private static final String[] PUBLIC = { "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**",
-			"/swagger-resources/**", "/api-docs/**", "/aggregate/**", "/auth/**" // allow register/login/refresh from
+			"/swagger-resources/**", "/api-docs/**", "/aggregate/**", "/auth/**" , "/actuator/**"// allow register/login/refresh from
 																					// your auth-service
 	};
 
 	@Bean
 	SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-		http.csrf(csrf -> csrf.disable()).cors(Customizer.withDefaults())
+		http
+				.csrf(csrf -> csrf.disable())
+				.cors(Customizer.withDefaults())
 				.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-				.authorizeHttpRequests(auth -> auth.requestMatchers(PUBLIC).permitAll().anyRequest().authenticated())
-				// REMOVE oauth2ResourceServer().jwt()
+				.authorizeHttpRequests(auth -> auth
+						.requestMatchers(PUBLIC).permitAll()
+						.anyRequest().authenticated()
+				)
+				.exceptionHandling(e -> e
+						// Unauthenticated → 401 (so Axios can refresh)
+						.authenticationEntryPoint((req, res, ex) ->
+								res.sendError(HttpServletResponse.SC_UNAUTHORIZED))
+						// Authenticated but not allowed → 403
+
+						.accessDeniedHandler((req, res, ex) ->
+								res.sendError(HttpServletResponse.SC_FORBIDDEN))
+				)
 				.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();

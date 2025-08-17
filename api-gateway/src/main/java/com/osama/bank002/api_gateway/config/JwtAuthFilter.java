@@ -39,20 +39,28 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 		if (h != null && h.startsWith("Bearer ")) {
 			String token = h.substring(7);
 			try {
-				Claims c = Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(token).getBody();
+				var parser = Jwts.parserBuilder()
+						.setSigningKey(key())
+						.setAllowedClockSkewSeconds(120) // tolerate skew
+						.build();
+				Claims c = parser.parseClaimsJws(token).getBody();
 
 				@SuppressWarnings("unchecked")
 				List<String> roles = (List<String>) c.get("roles");
 				var authorities = roles == null ? List.<GrantedAuthority>of()
 						: roles.stream().map(r -> new SimpleGrantedAuthority("ROLE_" + r)).toList();
 
-				// subject = email
 				var auth = new UsernamePasswordAuthenticationToken(c.getSubject(), null, authorities);
-				// store claims for later (JwtUtils reads them)
 				auth.setDetails(c);
 				SecurityContextHolder.getContext().setAuthentication(auth);
-			} catch (JwtException ignored) {
-				// invalid -> continue unauthenticated
+
+				System.out.println("GATEWAY JWT OK: sub=" + c.getSubject() + ", roles=" + roles);
+			} catch (io.jsonwebtoken.ExpiredJwtException ex) {
+				System.out.println("GATEWAY JWT FAIL: ExpiredJwtException - " + ex.getMessage());
+			} catch (io.jsonwebtoken.security.SignatureException ex) {
+				System.out.println("GATEWAY JWT FAIL: SignatureException - " + ex.getMessage());
+			} catch (io.jsonwebtoken.JwtException ex) {
+				System.out.println("GATEWAY JWT FAIL: " + ex.getClass().getSimpleName() + " - " + ex.getMessage());
 			}
 		}
 		chain.doFilter(req, res);
